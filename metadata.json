@@ -1,0 +1,6 @@
+{
+  "name": "AegisVault - Windows Blockchain & E2EE File Protection",
+  "description": "Hệ thống bảo vệ an toàn dữ liệu cục bộ cho Windows với mã hóa đầu cuối AES-256-GCM, sổ cái Blockchain bất biến chống giả mạo và dịch vụ nền tảng hệ thống Python.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
