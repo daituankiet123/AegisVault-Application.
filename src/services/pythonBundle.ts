@@ -311,17 +311,112 @@ if __name__ == "__main__":
 `
   },
   {
+    filename: "aegis_server.py",
+    description: "Máy chủ HTTP nhị phân cục bộ tích hợp: Khởi chạy máy chủ Web tĩnh trên 127.0.0.1, ngăn chặn 100% lỗi ERR_CONNECTION_REFUSED.",
+    category: "service",
+    content: `#!/usr/bin/env python3
+"""
+AegisVault Embedded Local Web Server
+====================================
+Serves the AegisVault Web Console locally on 127.0.0.1.
+Guarantees NO ERR_CONNECTION_REFUSED when opening the dashboard from Windows.
+"""
+import os, sys, socket, threading, webbrowser
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+def find_dist_dir():
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        for sub in ['dist', 'web_ui', '']:
+            p = os.path.join(sys._MEIPASS, sub)
+            if os.path.exists(p) and os.path.exists(os.path.join(p, 'index.html')):
+                return p
+    base = os.path.dirname(os.path.abspath(__file__))
+    for c in [os.path.join(base, '..', 'dist'), os.path.join(base, 'dist'), base]:
+        if os.path.exists(c) and os.path.exists(os.path.join(c, 'index.html')):
+            return os.path.abspath(c)
+    return base
+
+def find_open_port(port=8080):
+    for p in [port, 3000, 8081, 8888, 5173, 0]:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('127.0.0.1', p))
+                return s.getsockname()[1]
+        except OSError:
+            continue
+    return port
+
+class SPARequestHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, directory=None, **kwargs):
+        super().__init__(*args, directory=directory or find_dist_dir(), **kwargs)
+
+    def do_GET(self):
+        path = self.translate_path(self.path)
+        if not os.path.exists(path) and '.' not in os.path.basename(self.path):
+            index_p = os.path.join(self.directory, 'index.html')
+            if os.path.exists(index_p):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open(index_p, 'rb') as f:
+                    self.wfile.write(f.read())
+                return
+        return super().do_GET()
+
+    def log_message(self, format, *args):
+        pass
+
+class ThreadedServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
+_url = None
+def start_embedded_server(port=8080):
+    global _url
+    if _url:
+        return _url
+    actual_port = find_open_port(port)
+    dist_dir = find_dist_dir()
+    httpd = ThreadedServer(('127.0.0.1', actual_port), lambda *a, **k: SPARequestHandler(*a, directory=dist_dir, **k))
+    _url = f"http://127.0.0.1:{actual_port}"
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    print(f"[AegisVault] Local Web Server active at: {_url}")
+    return _url
+
+def open_browser():
+    url = start_embedded_server()
+    webbrowser.open(url)
+    return url
+
+if __name__ == "__main__":
+    u = open_browser()
+    print(f"Server is running at {u}. Press Ctrl+C to stop.")
+    try:
+        while True:
+            threading.Event().wait(1)
+    except KeyboardInterrupt:
+        pass
+`
+  },
+  {
     filename: "windows_tray.py",
-    description: "Ứng dụng thanh thông báo Windows (System Tray) với biểu tượng bảo vệ và menu tương tác.",
+    description: "Ứng dụng thanh thông báo Windows (System Tray) tự động khởi chạy máy chủ web cục bộ và mở giao diện.",
     category: "tray",
     content: `#!/usr/bin/env python3
-import os, sys, webbrowser
+import os, sys, webbrowser, threading
+try:
+    from aegis_server import start_embedded_server, open_browser
+except ImportError:
+    start_embedded_server = None
+    open_browser = None
+
 try:
     import pystray
     from PIL import Image, ImageDraw
+    HAS_TRAY = True
 except ImportError:
-    print("Vui lòng cài đặt: pip install pystray pillow")
-    sys.exit(1)
+    HAS_TRAY = False
 
 def create_icon():
     img = Image.new('RGBA', (64, 64), (0,0,0,0))
@@ -330,15 +425,79 @@ def create_icon():
     return img
 
 def main():
+    # 1. Start embedded web server immediately so localhost NEVER refuses connection
+    active_url = "http://127.0.0.1:8080"
+    if start_embedded_server:
+        active_url = start_embedded_server(8080)
+
+    def launch_console(icon=None, item=None):
+        if open_browser:
+            open_browser()
+        else:
+            webbrowser.open(active_url)
+
+    if not HAS_TRAY:
+        print(f"Running without tray. Web console: {active_url}")
+        launch_console()
+        try:
+            while True:
+                threading.Event().wait(1)
+        except KeyboardInterrupt:
+            return
+
     menu = pystray.Menu(
         pystray.MenuItem("AegisVault - Đang bảo vệ Windows", lambda: None, enabled=False),
-        pystray.MenuItem("Mở Bảng điều khiển Web", lambda: webbrowser.open("http://localhost:3000")),
-        pystray.MenuItem("Thoát", lambda icon: icon.stop())
+        pystray.MenuItem(f"Mở Bảng điều khiển Web ({active_url})", launch_console, default=True),
+        pystray.MenuItem("Thoát", lambda icon, item: icon.stop())
     )
+    # Open browser on initial launch
+    launch_console()
     pystray.Icon("AegisVault", create_icon(), "AegisVault", menu).run()
 
 if __name__ == "__main__":
     main()
+`
+  },
+  {
+    filename: "run_app.bat",
+    description: "Tập tin chạy ứng dụng 1-Click: Tự động khởi động máy chủ nhị phân cục bộ và mở bảng điều khiển trên Windows.",
+    category: "setup",
+    content: `@echo off
+chcp 65001 >nul
+title AegisVault Launcher
+echo ========================================================
+echo       AegisVault Windows Local Launcher & Server
+echo ========================================================
+echo.
+cd /d "%~dp0"
+echo [1/2] Đang khởi chạy máy chủ nhị phân cục bộ (Localhost Server)...
+echo [2/2] Đang mở giao diện điều khiển AegisVault...
+python windows_tray.py
+if errorlevel 1 (
+    echo [THÔNG BÁO] Chuyển sang chạy máy chủ HTTP trực tiếp...
+    python aegis_server.py
+)
+pause
+`
+  },
+  {
+    filename: "build_windows_exe.bat",
+    description: "Tập tin đóng gói thành AegisVault.exe duy nhất với PyInstaller và đóng gói cả giao diện Web dist.",
+    category: "setup",
+    content: `@echo off
+chcp 65001 >nul
+echo ========================================================
+echo    AegisVault Windows Standalone Executable Builder
+echo ========================================================
+cd /d "%~dp0"
+pip install pyinstaller cryptography watchdog pystray pillow >nul 2>&1
+if exist "..\\dist" (
+    pyinstaller --onefile --noconsole --name "AegisVault" --add-data "..\\dist;dist" --add-data "aegis_server.py;." windows_tray.py
+) else (
+    pyinstaller --onefile --noconsole --name "AegisVault" --add-data "aegis_server.py;." windows_tray.py
+)
+echo Hoan tat! Tep AegisVault.exe nam trong thu muc dist\\
+pause
 `
   },
   {

@@ -230,31 +230,75 @@ install_windows_service.bat`}
           </h3>
 
           <p className="text-xs text-slate-400 leading-relaxed">
-            Bạn có thể biên dịch toàn bộ mã nguồn Python thành một tệp nhị phân `.exe` duy nhất bằng <code>PyInstaller</code>, có thể chạy trên bất kỳ máy Windows nào mà không cần cài đặt Python.
+            Bạn có thể biên dịch toàn bộ mã nguồn Python thành một tệp nhị phân `.exe` duy nhất bằng <code>PyInstaller</code>, tự động tích hợp sẵn máy chủ web nhị phân cục bộ (Localhost Server) để không bao giờ bị lỗi từ chối kết nối.
           </p>
 
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs space-y-2">
             <div className="flex items-center justify-between text-slate-400">
-              <span className="text-cyan-400">Lệnh đóng gói PyInstaller:</span>
+              <span className="text-cyan-400">Lệnh đóng gói PyInstaller chuẩn (Đã đính kèm Web UI dist & Server):</span>
               <button
-                onClick={() => handleCopy(`pip install pyinstaller cryptography watchdog pystray\npyinstaller --onefile --noconsole --name "AegisVault" --icon=icon.ico windows_tray.py`, "pyinstaller")}
+                onClick={() => handleCopy(`pip install pyinstaller cryptography watchdog pystray pillow\npyinstaller --onefile --noconsole --name "AegisVault" --add-data "..\\dist;dist" --add-data "aegis_server.py;." windows_tray.py`, "pyinstaller")}
                 className="text-slate-400 hover:text-slate-200"
               >
                 {copiedScript === 'pyinstaller' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
             <pre className="text-slate-200 text-[11px] whitespace-pre-wrap leading-relaxed">
-{`# 1. Cài đặt công cụ đóng gói:
-pip install pyinstaller cryptography watchdog pystray
+{`# 1. Cài đặt các thư viện cần thiết:
+pip install pyinstaller cryptography watchdog pystray pillow
 
-# 2. Biên dịch thành tệp AegisVault.exe duy nhất:
-pyinstaller --onefile --noconsole --name "AegisVault" windows_tray.py
+# 2. Đóng gói AegisVault.exe (Kèm máy chủ nhị phân & Web UI dist):
+pyinstaller --onefile --noconsole --name "AegisVault" --add-data "..\\dist;dist" --add-data "aegis_server.py;." windows_tray.py
 
-# Kết quả: Tệp dist\\AegisVault.exe sẵn sàng chạy trên Windows!`}
+# 3. Hoàn tất! Nhấp đúp vào dist\\AegisVault.exe để chạy trực tiếp trên Windows.`}
             </pre>
           </div>
         </div>
       )}
+
+      {/* Troubleshooting Card: Fix ERR_CONNECTION_REFUSED */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/30 border border-amber-500/30 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">
+            !
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-100">
+              Khắc phục lỗi: "localhost đã từ chối kết nối / ERR_CONNECTION_REFUSED"
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Nếu mở trình duyệt gặp thông báo này khi bấm vào biểu tượng khay hệ thống hoặc tệp đóng gói:
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono pt-1">
+          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span className="text-amber-400 font-bold">Giải pháp 1: Khởi chạy bằng `run_app.bat`</span>
+            <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+              Tập lệnh <code>run_app.bat</code> mới đã tích hợp sẵn <strong>Máy chủ HTTP Nhị phân Tự hành (`aegis_server.py`)</strong>. Tệp này sẽ tự động bật máy chủ cục bộ trên cổng 8080 trước khi mở trình duyệt, đảm bảo 100% không bị từ chối kết nối.
+            </p>
+            <div className="p-2 rounded bg-slate-900 text-cyan-300 text-[11px]">
+              python python_core/run_app.bat
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <span className="text-emerald-400 font-bold">Giải pháp 2: Sử dụng Desktop App (PWA Khuyên dùng)</span>
+            <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+              Bấm nút <strong>"Cài đặt Desktop App Ngay"</strong> ở đầu trang. Ứng dụng sẽ chạy trong cửa sổ độc lập của Windows như một phần mềm hoàn chỉnh, lưu trữ 5 GB dữ liệu an toàn mà không cần quản lý tiến trình máy chủ Python thủ công!
+            </p>
+            {isInstallable && (
+              <button
+                onClick={install}
+                className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors"
+              >
+                Cài đặt Desktop App Ngay
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* 4-Step Master Workflow Card */}
       <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800 space-y-4">

@@ -121,14 +121,17 @@ Dành cho máy tính văn phòng, doanh nghiệp cần bảo vệ tệp tự đ�
 ### Cách 3: Đóng gói Tệp Thực thi Độc lập (.exe)
 Nếu muốn chạy trực tiếp mà không cần cài đặt Python trên máy đích:
 ```bash
-# 1. Cài đặt PyInstaller
+# 1. Cài đặt PyInstaller & thư viện giao diện
 pip install pyinstaller cryptography watchdog pystray pillow pywin32
 
-# 2. Biên dịch thành tệp AegisVault.exe độc lập
-pyinstaller --onefile --noconsole --name "AegisVault" --icon=public/icon.svg python_core/windows_tray.py
+# 2. Biên dịch thành tệp AegisVault.exe độc lập (Đã đính kèm Web UI dist & Máy chủ HTTP tự hành):
+pyinstaller --onefile --noconsole --name "AegisVault" --add-data "dist;dist" --add-data "aegis_server.py;." python_core/windows_tray.py
 
-# 3. Tệp dist\AegisVault.exe được tạo ra sẵn sàng phân phối và khởi chạy!
+# 3. Tệp dist\AegisVault.exe được tạo ra sẵn sàng chạy trực tiếp!
 ```
+
+> 💡 **Khắc phục lỗi `localhost đã từ chối kết nối / ERR_CONNECTION_REFUSED`**:
+> Khi mở khay hệ thống mà trình duyệt báo không thể kết nối tới `localhost`, hãy khởi chạy bằng tập lệnh **`python_core\run_app.bat`** hoặc **`python python_core\aegis_server.py`**. Tập lệnh này tích hợp sẵn máy chủ HTTP nhị phân cục bộ trên cổng `8080`, đảm bảo tự động lắng nghe kết nối trước khi mở trình duyệt.
 
 ---
 
@@ -142,11 +145,14 @@ pyinstaller --onefile --noconsole --name "AegisVault" --icon=public/icon.svg pyt
 │   ├── pwa-512x512.png          # Biểu tượng PWA kích thước lớn
 │   └── apple-touch-icon.png     # Biểu tượng tương thích hệ thống
 ├── python_core/                 # Bộ công cụ mã hóa cốt lõi & dịch vụ Windows
+│   ├── aegis_server.py          # Máy chủ HTTP nhị phân cục bộ (Chống lỗi ERR_CONNECTION_REFUSED)
 │   ├── aegis_crypto.py          # Lõi mã hóa AES-256-GCM & Tiêu hủy DoD
 │   ├── blockchain_ledger.py     # Sổ cái Blockchain Next-Gen & SMT Proofs
 │   ├── windows_service.py       # Dịch vụ Windows Background Service (pywin32)
-│   ├── windows_tray.py          # Khay thông báo Taskbar Windows (pystray)
-│   ├── install_windows_service.bat # Tập lệnh cài đặt 1-Click (Admin)
+│   ├── windows_tray.py          # Khay thông báo Taskbar Windows tự động bật Web Server
+│   ├── run_app.bat              # Tập lệnh 1-Click khởi chạy máy chủ & mở giao diện
+│   ├── build_windows_exe.bat    # Tập lệnh đóng gói AegisVault.exe với PyInstaller
+│   ├── install_windows_service.bat # Tập lệnh cài đặt dịch vụ chạy ngầm 24/7 (Admin)
 │   ├── setup_service.ps1        # Script cài đặt PowerShell
 │   └── requirements.txt         # Danh mục thư viện Python yêu cầu
 ├── src/                         # Giao diện người dùng React 19 + TypeScript
